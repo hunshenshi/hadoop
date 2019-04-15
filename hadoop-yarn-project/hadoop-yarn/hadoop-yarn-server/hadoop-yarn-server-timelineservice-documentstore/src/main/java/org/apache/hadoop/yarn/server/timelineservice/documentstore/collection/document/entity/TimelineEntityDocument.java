@@ -138,18 +138,14 @@ public class TimelineEntityDocument implements
   }
 
   public void setMetrics(Map<String, Set<TimelineMetricSubDoc>> metrics) {
-    for (Map.Entry<String, Set<TimelineMetricSubDoc>> metricEntry :
-        metrics.entrySet()) {
-      final String metricId = metricEntry.getKey();
-      final Set<TimelineMetricSubDoc> metricValue = metricEntry.getValue();
-
-      for(TimelineMetricSubDoc metricSubDoc : metricValue) {
+    for (String metricId : metrics.keySet()) {
+      for(TimelineMetricSubDoc metricSubDoc : metrics.get(metricId)) {
         timelineEntity.addMetric(metricSubDoc.fetchTimelineMetric());
       }
       if (this.metrics.containsKey(metricId)) {
-        this.metrics.get(metricId).addAll(metricValue);
+        this.metrics.get(metricId).addAll(metrics.get(metricId));
       } else {
-        this.metrics.put(metricId, new HashSet<>(metricValue));
+        this.metrics.put(metricId, new HashSet<>(metrics.get(metricId)));
       }
     }
   }
@@ -159,18 +155,14 @@ public class TimelineEntityDocument implements
   }
 
   public void setEvents(Map<String, Set<TimelineEventSubDoc>> events) {
-    for (Map.Entry<String, Set<TimelineEventSubDoc>> eventEntry :
-        events.entrySet()) {
-      final String eventId = eventEntry.getKey();
-      final Set<TimelineEventSubDoc> eventValue = eventEntry.getValue();
-
-      for(TimelineEventSubDoc eventSubDoc : eventValue) {
+    for (String eventId : events.keySet()) {
+      for(TimelineEventSubDoc eventSubDoc: events.get(eventId)) {
         timelineEntity.addEvent(eventSubDoc.fetchTimelineEvent());
       }
       if (this.events.containsKey(eventId)) {
         this.events.get(eventId).addAll(events.get(eventId));
       } else {
-        this.events.put(eventId, new HashSet<>(eventValue));
+        this.events.put(eventId, new HashSet<>(events.get(eventId)));
       }
     }
   }

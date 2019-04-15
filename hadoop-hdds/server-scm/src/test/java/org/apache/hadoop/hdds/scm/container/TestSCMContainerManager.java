@@ -107,8 +107,8 @@ public class TestSCMContainerManager {
   }
 
   @Before
-  public void clearSafeMode() {
-    nodeManager.setSafemode(false);
+  public void clearChillMode() {
+    nodeManager.setChillmode(false);
   }
 
   @Test
@@ -266,7 +266,7 @@ public class TestSCMContainerManager {
    */
   private ContainerInfo createContainer()
       throws IOException {
-    nodeManager.setSafemode(false);
+    nodeManager.setChillmode(false);
     return containerManager
         .allocateContainer(xceiverClientManager.getType(),
             xceiverClientManager.getFactor(), containerOwner);

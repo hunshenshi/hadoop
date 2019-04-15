@@ -18,7 +18,6 @@
 
 package org.apache.hadoop.yarn.appcatalog.application;
 
-import org.apache.hadoop.yarn.appcatalog.model.AppEntry;
 import org.apache.hadoop.yarn.appcatalog.model.AppStoreEntry;
 import org.apache.hadoop.yarn.appcatalog.model.Application;
 import org.apache.solr.client.solrj.SolrClient;
@@ -128,22 +127,4 @@ public class TestAppCatalogSolrClient {
     }
   }
 
-  @Test
-  public void testUpgradeApp() throws Exception {
-    Application example = new Application();
-    String expected = "2.0";
-    String actual = "";
-    example.setOrganization("jenkins-ci.org");
-    example.setVersion("1.0");
-    example.setName("jenkins");
-    example.setDescription("World leading open source automation system.");
-    example.setIcon("/css/img/feather.png");
-    spy.register(example);
-    spy.deployApp("test", example);
-    example.setVersion("2.0");
-    spy.upgradeApp(example);
-    List<AppEntry> appEntries = spy.listAppEntries();
-    actual = appEntries.get(appEntries.size() -1).getYarnfile().getVersion();
-    assertEquals(expected, actual);
-  }
 }

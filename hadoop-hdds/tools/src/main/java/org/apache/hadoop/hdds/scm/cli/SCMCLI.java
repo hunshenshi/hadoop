@@ -77,7 +77,7 @@ import picocli.CommandLine.Option;
         + "operations.",
     versionProvider = HddsVersionProvider.class,
     subcommands = {
-        SafeModeCommands.class,
+        ChillModeCommands.class,
         ListSubcommand.class,
         InfoSubcommand.class,
         DeleteSubcommand.class,

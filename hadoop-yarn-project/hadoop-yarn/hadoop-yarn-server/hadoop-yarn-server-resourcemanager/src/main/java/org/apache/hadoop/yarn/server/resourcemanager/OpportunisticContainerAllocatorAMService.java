@@ -19,7 +19,6 @@
 package org.apache.hadoop.yarn.server.resourcemanager;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.hadoop.yarn.server.metrics.OpportunisticSchedulerMetrics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -201,9 +200,6 @@ public class OpportunisticContainerAllocatorAMService
 
       // Create RMContainers and update the NMTokens.
       if (!oppContainers.isEmpty()) {
-        OpportunisticSchedulerMetrics schedulerMetrics =
-            OpportunisticSchedulerMetrics.getMetrics();
-        schedulerMetrics.incrAllocatedOppContainers(oppContainers.size());
         handleNewContainers(oppContainers, false);
         appAttempt.updateNMTokens(oppContainers);
         ApplicationMasterServiceUtils.addToAllocatedContainers(

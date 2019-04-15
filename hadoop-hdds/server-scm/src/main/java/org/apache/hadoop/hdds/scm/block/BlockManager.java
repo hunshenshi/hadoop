@@ -81,9 +81,9 @@ public interface BlockManager extends Closeable {
   SCMBlockDeletingService getSCMBlockDeletingService();
 
   /**
-   * Set SafeMode status.
+   * Set ChillMode status.
    *
-   * @param safeModeStatus
+   * @param chillModeStatus
    */
-  void setSafeModeStatus(boolean safeModeStatus);
+  void setChillModeStatus(boolean chillModeStatus);
 }

@@ -163,18 +163,18 @@ public interface StorageContainerLocationProtocol extends Closeable {
   ScmInfo getScmInfo() throws IOException;
 
   /**
-   * Check if SCM is in safe mode.
+   * Check if SCM is in chill mode.
    *
-   * @return Returns true if SCM is in safe mode else returns false.
+   * @return Returns true if SCM is in chill mode else returns false.
    * @throws IOException
    */
-  boolean inSafeMode() throws IOException;
+  boolean inChillMode() throws IOException;
 
   /**
-   * Force SCM out of Safe mode.
+   * Force SCM out of Chill mode.
    *
    * @return returns true if operation is successful.
    * @throws IOException
    */
-  boolean forceExitSafeMode() throws IOException;
+  boolean forceExitChillMode() throws IOException;
 }

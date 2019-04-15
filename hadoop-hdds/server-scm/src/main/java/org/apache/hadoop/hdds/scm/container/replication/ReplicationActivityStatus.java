@@ -86,12 +86,12 @@ public class ReplicationActivityStatus implements
 
   /**
    * Waits for
-   * {@link HddsConfigKeys#HDDS_SCM_WAIT_TIME_AFTER_SAFE_MODE_EXIT} and set
+   * {@link HddsConfigKeys#HDDS_SCM_WAIT_TIME_AFTER_CHILL_MODE_EXIT} and set
    * replicationEnabled to start replication monitor thread.
    */
-  public void fireReplicationStart(boolean safeModeStatus,
+  public void fireReplicationStart(boolean chillModeStatus,
       long waitTime) {
-    if (!safeModeStatus) {
+    if (!chillModeStatus) {
       scheduler.schedule(() -> {
         setReplicationEnabled(true);
         LOG.info("Replication Timer sleep for {} ms completed. Enable "

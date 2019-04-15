@@ -189,18 +189,18 @@ public interface ScmClient extends Closeable {
   void closePipeline(HddsProtos.PipelineID pipelineID) throws IOException;
 
   /**
-   * Check if SCM is in safe mode.
+   * Check if SCM is in chill mode.
    *
-   * @return Returns true if SCM is in safe mode else returns false.
+   * @return Returns true if SCM is in chill mode else returns false.
    * @throws IOException
    */
-  boolean inSafeMode() throws IOException;
+  boolean inChillMode() throws IOException;
 
   /**
-   * Force SCM out of safe mode.
+   * Force SCM out of chill mode.
    *
    * @return returns true if operation is successful.
    * @throws IOException
    */
-  boolean forceExitSafeMode() throws IOException;
+  boolean forceExitChillMode() throws IOException;
 }

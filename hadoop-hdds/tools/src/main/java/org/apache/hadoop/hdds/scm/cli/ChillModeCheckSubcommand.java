@@ -28,28 +28,32 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.ParentCommand;
 
 /**
- * This is the handler that process safe mode exit command.
+ * This is the handler that process chill mode check command.
  */
 @Command(
-    name = "exit",
-    description = "Force SCM out of safe mode",
+    name = "status",
+    description = "Check if SCM is in chill mode",
     mixinStandardHelpOptions = true,
     versionProvider = HddsVersionProvider.class)
-public class SafeModeExitSubcommand implements Callable<Void> {
+public class ChillModeCheckSubcommand implements Callable<Void> {
 
   private static final Logger LOG =
-      LoggerFactory.getLogger(SafeModeExitSubcommand.class);
+      LoggerFactory.getLogger(ChillModeCheckSubcommand.class);
 
   @ParentCommand
-  private SafeModeCommands parent;
+  private ChillModeCommands parent;
 
   @Override
   public Void call() throws Exception {
     try (ScmClient scmClient = parent.getParent().createScmClient()) {
 
-      boolean execReturn = scmClient.forceExitSafeMode();
+      boolean execReturn = scmClient.inChillMode();
+
+      // Output data list
       if(execReturn){
-        LOG.info("SCM exit safe mode successfully.");
+        LOG.info("SCM is in chill mode.");
+      } else {
+        LOG.info("SCM is out of chill mode.");
       }
       return null;
     }

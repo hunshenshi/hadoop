@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -27,8 +27,6 @@ import org.apache.hadoop.hdds.scm.container.ReplicationManager;
 import org.apache.hadoop.hdds.scm.container.placement.algorithms
     .ContainerPlacementPolicy;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
-import org.apache.hadoop.hdds.scm.pipeline.SCMPipelineManager;
 import org.apache.hadoop.hdds.scm.server.SCMClientProtocolServer;
 import org.apache.hadoop.hdds.server.events.EventQueue;
 import org.apache.hadoop.test.GenericTestUtils;
@@ -39,25 +37,24 @@ import org.mockito.Mockito;
 import java.util.HashSet;
 
 /**
- * Tests SafeModeHandler behavior.
+ * Tests ChillModeHandler behavior.
  */
-public class TestSafeModeHandler {
+public class TestChillModeHandler {
 
 
   private OzoneConfiguration configuration;
   private SCMClientProtocolServer scmClientProtocolServer;
   private ReplicationManager replicationManager;
   private BlockManager blockManager;
-  private SafeModeHandler safeModeHandler;
+  private ChillModeHandler chillModeHandler;
   private EventQueue eventQueue;
-  private SCMSafeModeManager.SafeModeStatus safeModeStatus;
-  private PipelineManager scmPipelineManager;
+  private SCMChillModeManager.ChillModeStatus chillModeStatus;
 
   public void setup(boolean enabled) {
     configuration = new OzoneConfiguration();
-    configuration.setBoolean(HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED,
+    configuration.setBoolean(HddsConfigKeys.HDDS_SCM_CHILLMODE_ENABLED,
         enabled);
-    configuration.set(HddsConfigKeys.HDDS_SCM_WAIT_TIME_AFTER_SAFE_MODE_EXIT,
+    configuration.set(HddsConfigKeys.HDDS_SCM_WAIT_TIME_AFTER_CHILL_MODE_EXIT,
         "3s");
     scmClientProtocolServer =
         Mockito.mock(SCMClientProtocolServer.class);
@@ -69,47 +66,46 @@ public class TestSafeModeHandler {
     replicationManager = new ReplicationManager(configuration,
         containerManager, Mockito.mock(ContainerPlacementPolicy.class),
         eventQueue);
-    scmPipelineManager = Mockito.mock(SCMPipelineManager.class);
     blockManager = Mockito.mock(BlockManagerImpl.class);
-    safeModeHandler =
-        new SafeModeHandler(configuration, scmClientProtocolServer,
-            blockManager, replicationManager, scmPipelineManager);
+    chillModeHandler =
+        new ChillModeHandler(configuration, scmClientProtocolServer,
+            blockManager, replicationManager);
 
-    eventQueue.addHandler(SCMEvents.SAFE_MODE_STATUS, safeModeHandler);
-    safeModeStatus = new SCMSafeModeManager.SafeModeStatus(false);
+    eventQueue.addHandler(SCMEvents.CHILL_MODE_STATUS, chillModeHandler);
+    chillModeStatus = new SCMChillModeManager.ChillModeStatus(false);
 
   }
 
   @Test
-  public void testSafeModeHandlerWithSafeModeEnabled() throws Exception {
+  public void testChillModeHandlerWithChillModeEnabled() throws Exception {
     setup(true);
 
-    Assert.assertTrue(safeModeHandler.getSafeModeStatus());
+    Assert.assertTrue(chillModeHandler.getChillModeStatus());
 
-    eventQueue.fireEvent(SCMEvents.SAFE_MODE_STATUS, safeModeStatus);
+    eventQueue.fireEvent(SCMEvents.CHILL_MODE_STATUS, chillModeStatus);
 
-    GenericTestUtils.waitFor(() -> !safeModeHandler.getSafeModeStatus(),
+    GenericTestUtils.waitFor(() -> !chillModeHandler.getChillModeStatus(),
         1000, 5000);
 
-    Assert.assertFalse(scmClientProtocolServer.getSafeModeStatus());
-    Assert.assertFalse(((BlockManagerImpl) blockManager).isScmInSafeMode());
+    Assert.assertFalse(scmClientProtocolServer.getChillModeStatus());
+    Assert.assertFalse(((BlockManagerImpl) blockManager).isScmInChillMode());
     GenericTestUtils.waitFor(() ->
             replicationManager.isRunning(), 1000, 5000);
   }
 
 
   @Test
-  public void testSafeModeHandlerWithSafeModeDisbaled() throws Exception{
+  public void testChillModeHandlerWithChillModeDisbaled() throws Exception{
 
     setup(false);
 
-    Assert.assertFalse(safeModeHandler.getSafeModeStatus());
+    Assert.assertFalse(chillModeHandler.getChillModeStatus());
 
-    eventQueue.fireEvent(SCMEvents.SAFE_MODE_STATUS, safeModeStatus);
+    eventQueue.fireEvent(SCMEvents.CHILL_MODE_STATUS, chillModeStatus);
 
-    Assert.assertFalse(safeModeHandler.getSafeModeStatus());
-    Assert.assertFalse(scmClientProtocolServer.getSafeModeStatus());
-    Assert.assertFalse(((BlockManagerImpl) blockManager).isScmInSafeMode());
+    Assert.assertFalse(chillModeHandler.getChillModeStatus());
+    Assert.assertFalse(scmClientProtocolServer.getChillModeStatus());
+    Assert.assertFalse(((BlockManagerImpl) blockManager).isScmInChillMode());
     GenericTestUtils.waitFor(() ->
         replicationManager.isRunning(), 1000, 5000);
   }

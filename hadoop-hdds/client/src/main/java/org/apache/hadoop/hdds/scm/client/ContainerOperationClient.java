@@ -447,22 +447,22 @@ public class ContainerOperationClient implements ScmClient {
   }
 
   /**
-   * Check if SCM is in safe mode.
+   * Check if SCM is in chill mode.
    *
-   * @return Returns true if SCM is in safe mode else returns false.
+   * @return Returns true if SCM is in chill mode else returns false.
    * @throws IOException
    */
-  public boolean inSafeMode() throws IOException {
-    return storageContainerLocationClient.inSafeMode();
+  public boolean inChillMode() throws IOException {
+    return storageContainerLocationClient.inChillMode();
   }
 
   /**
-   * Force SCM out of safe mode.
+   * Force SCM out of chill mode.
    *
    * @return returns true if operation is successful.
    * @throws IOException
    */
-  public boolean forceExitSafeMode() throws IOException {
-    return storageContainerLocationClient.forceExitSafeMode();
+  public boolean forceExitChillMode() throws IOException {
+    return storageContainerLocationClient.forceExitChillMode();
   }
 }

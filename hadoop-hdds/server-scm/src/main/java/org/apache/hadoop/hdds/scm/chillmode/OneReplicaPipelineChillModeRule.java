@@ -15,7 +15,7 @@
  * the License.
  */
 
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -44,13 +44,13 @@ import java.util.Set;
 /**
  * This rule covers whether we have at least one datanode is reported for each
  * pipeline. This rule is for all open containers, we have at least one
- * replica available for read when we exit safe mode.
+ * replica available for read when we exit chill mode.
  */
-public class OneReplicaPipelineSafeModeRule extends
-    SafeModeExitRule<PipelineReportFromDatanode> {
+public class OneReplicaPipelineChillModeRule extends
+    ChillModeExitRule<PipelineReportFromDatanode> {
 
   private static final Logger LOG =
-      LoggerFactory.getLogger(OneReplicaPipelineSafeModeRule.class);
+      LoggerFactory.getLogger(OneReplicaPipelineChillModeRule.class);
 
   private int thresholdCount;
   private Set<PipelineID> reportedPipelineIDSet = new HashSet<>();
@@ -58,21 +58,21 @@ public class OneReplicaPipelineSafeModeRule extends
   private int currentReportedPipelineCount = 0;
 
 
-  public OneReplicaPipelineSafeModeRule(String ruleName, EventQueue eventQueue,
+  public OneReplicaPipelineChillModeRule(String ruleName, EventQueue eventQueue,
       PipelineManager pipelineManager,
-      SCMSafeModeManager safeModeManager, Configuration configuration) {
-    super(safeModeManager, ruleName, eventQueue);
+      SCMChillModeManager chillModeManager, Configuration configuration) {
+    super(chillModeManager, ruleName, eventQueue);
     this.pipelineManager = pipelineManager;
 
     double percent =
         configuration.getDouble(
-            HddsConfigKeys.HDDS_SCM_SAFEMODE_ONE_NODE_REPORTED_PIPELINE_PCT,
+            HddsConfigKeys.HDDS_SCM_CHILLMODE_ONE_NODE_REPORTED_PIPELINE_PCT,
             HddsConfigKeys.
-                HDDS_SCM_SAFEMODE_ONE_NODE_REPORTED_PIPELINE_PCT_DEFAULT);
+                HDDS_SCM_CHILLMODE_ONE_NODE_REPORTED_PIPELINE_PCT_DEFAULT);
 
     Preconditions.checkArgument((percent >= 0.0 && percent <= 1.0),
         HddsConfigKeys.
-            HDDS_SCM_SAFEMODE_ONE_NODE_REPORTED_PIPELINE_PCT  +
+            HDDS_SCM_CHILLMODE_ONE_NODE_REPORTED_PIPELINE_PCT  +
             " value should be >= 0.0 and <= 1.0");
 
     int totalPipelineCount =
@@ -125,9 +125,9 @@ public class OneReplicaPipelineSafeModeRule extends
 
     currentReportedPipelineCount = reportedPipelineIDSet.size();
 
-    if (scmInSafeMode()) {
-      SCMSafeModeManager.getLogger().info(
-          "SCM in safe mode. Pipelines with atleast one datanode reported " +
+    if (scmInChillMode()) {
+      SCMChillModeManager.getLogger().info(
+          "SCM in chill mode. Pipelines with atleast one datanode reported " +
               "count is {}, required atleast one datanode reported per " +
               "pipeline count is {}",
           currentReportedPipelineCount, thresholdCount);

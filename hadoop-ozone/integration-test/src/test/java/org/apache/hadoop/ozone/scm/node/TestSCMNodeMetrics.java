@@ -101,9 +101,9 @@ public class TestSCMNodeMetrics {
     NodeReportProto nodeReport = NodeReportProto.newBuilder()
         .addStorageReport(storageReport).build();
     datanode.getDatanodeStateMachine().getContext().addReport(nodeReport);
-    cluster.getStorageContainerManager().getScmNodeManager()
-        .processNodeReport(datanode.getDatanodeDetails(), nodeReport);
-
+    datanode.getDatanodeStateMachine().triggerHeartbeat();
+    // Give some time so that SCM receives and processes the heartbeat.
+    Thread.sleep(100L);
     assertCounter("NumNodeReportProcessed", nrProcessed + 1,
         getMetrics(SCMNodeMetrics.class.getSimpleName()));
   }

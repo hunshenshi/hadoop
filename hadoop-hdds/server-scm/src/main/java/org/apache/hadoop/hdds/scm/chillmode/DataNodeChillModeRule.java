@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import java.util.HashSet;
 import java.util.UUID;
@@ -29,25 +29,25 @@ import org.apache.hadoop.hdds.server.events.EventQueue;
 import org.apache.hadoop.hdds.server.events.TypedEvent;
 
 /**
- * Class defining Safe mode exit criteria according to number of DataNodes
+ * Class defining Chill mode exit criteria according to number of DataNodes
  * registered with SCM.
  */
-public class DataNodeSafeModeRule extends
-    SafeModeExitRule<NodeRegistrationContainerReport>{
+public class DataNodeChillModeRule extends
+    ChillModeExitRule<NodeRegistrationContainerReport>{
 
-  // Min DataNodes required to exit safe mode.
+  // Min DataNodes required to exit chill mode.
   private int requiredDns;
   private int registeredDns = 0;
   // Set to track registered DataNodes.
   private HashSet<UUID> registeredDnSet;
 
-  public DataNodeSafeModeRule(String ruleName, EventQueue eventQueue,
+  public DataNodeChillModeRule(String ruleName, EventQueue eventQueue,
       Configuration conf,
-      SCMSafeModeManager manager) {
+      SCMChillModeManager manager) {
     super(manager, ruleName, eventQueue);
     requiredDns = conf.getInt(
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_MIN_DATANODE,
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_MIN_DATANODE_DEFAULT);
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_MIN_DATANODE,
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_MIN_DATANODE_DEFAULT);
     registeredDnSet = new HashSet<>(requiredDns * 2);
   }
 
@@ -67,9 +67,9 @@ public class DataNodeSafeModeRule extends
     registeredDnSet.add(reportsProto.getDatanodeDetails().getUuid());
     registeredDns = registeredDnSet.size();
 
-    if (scmInSafeMode()) {
-      SCMSafeModeManager.getLogger().info(
-          "SCM in safe mode. {} DataNodes registered, {} required.",
+    if (scmInChillMode()) {
+      SCMChillModeManager.getLogger().info(
+          "SCM in chill mode. {} DataNodes registered, {} required.",
           registeredDns, requiredDns);
     }
 

@@ -40,8 +40,8 @@ import org.apache.hadoop.hdds.scm.block.BlockManager;
 import org.apache.hadoop.hdds.scm.block.BlockManagerImpl;
 import org.apache.hadoop.hdds.scm.block.DeletedBlockLogImpl;
 import org.apache.hadoop.hdds.scm.block.PendingDeleteHandler;
-import org.apache.hadoop.hdds.scm.safemode.SafeModeHandler;
-import org.apache.hadoop.hdds.scm.safemode.SCMSafeModeManager;
+import org.apache.hadoop.hdds.scm.chillmode.ChillModeHandler;
+import org.apache.hadoop.hdds.scm.chillmode.SCMChillModeManager;
 import org.apache.hadoop.hdds.scm.command.CommandStatusReportHandler;
 import org.apache.hadoop.hdds.scm.container.CloseContainerEventHandler;
 import org.apache.hadoop.hdds.scm.container.ContainerActionsHandler;
@@ -196,12 +196,12 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
 
   private final LeaseManager<Long> commandWatcherLeaseManager;
 
-  private SCMSafeModeManager scmSafeModeManager;
+  private SCMChillModeManager scmChillModeManager;
   private CertificateServer certificateServer;
 
   private JvmPauseMonitor jvmPauseMonitor;
   private final OzoneConfiguration configuration;
-  private final SafeModeHandler safeModeHandler;
+  private final ChillModeHandler chillModeHandler;
   private SCMContainerMetrics scmContainerMetrics;
 
   /**
@@ -289,7 +289,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     NodeReportHandler nodeReportHandler =
         new NodeReportHandler(scmNodeManager);
     PipelineReportHandler pipelineReportHandler =
-        new PipelineReportHandler(scmSafeModeManager, pipelineManager, conf);
+        new PipelineReportHandler(scmChillModeManager, pipelineManager, conf);
     CommandStatusReportHandler cmdStatusReportHandler =
         new CommandStatusReportHandler();
 
@@ -334,9 +334,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
     clientProtocolServer = new SCMClientProtocolServer(conf, this);
     httpServer = new StorageContainerManagerHttpServer(conf);
 
-    safeModeHandler = new SafeModeHandler(configuration,
-        clientProtocolServer, scmBlockManager, replicationManager,
-        pipelineManager);
+    chillModeHandler = new ChillModeHandler(configuration,
+        clientProtocolServer, scmBlockManager, replicationManager);
 
     eventQueue.addHandler(SCMEvents.DATANODE_COMMAND, scmNodeManager);
     eventQueue.addHandler(SCMEvents.RETRIABLE_DATANODE_COMMAND, scmNodeManager);
@@ -358,7 +357,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
         (DeletedBlockLogImpl) scmBlockManager.getDeletedBlockLog());
     eventQueue.addHandler(SCMEvents.PIPELINE_ACTIONS, pipelineActionHandler);
     eventQueue.addHandler(SCMEvents.PIPELINE_REPORT, pipelineReportHandler);
-    eventQueue.addHandler(SCMEvents.SAFE_MODE_STATUS, safeModeHandler);
+    eventQueue.addHandler(SCMEvents.CHILL_MODE_STATUS, chillModeHandler);
     registerMXBean();
     registerMetricsSource(this);
   }
@@ -372,7 +371,7 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
    *  Container Manager
    *  Block Manager
    *  Replication Manager
-   *  Safe Mode Manager
+   *  Chill Mode Manager
    *
    * @param conf - Ozone Configuration.
    * @param configurator - A customizer which allows different managers to be
@@ -418,10 +417,10 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
       replicationManager = new ReplicationManager(conf,
           containerManager, containerPlacementPolicy, eventQueue);
     }
-    if(configurator.getScmSafeModeManager() != null) {
-      scmSafeModeManager = configurator.getScmSafeModeManager();
+    if(configurator.getScmChillModeManager() != null) {
+      scmChillModeManager = configurator.getScmChillModeManager();
     } else {
-      scmSafeModeManager = new SCMSafeModeManager(conf,
+      scmChillModeManager = new SCMChillModeManager(conf,
           containerManager.getContainers(), pipelineManager, eventQueue);
     }
   }
@@ -1074,18 +1073,8 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   }
 
   @VisibleForTesting
-  public SafeModeHandler getSafeModeHandler() {
-    return safeModeHandler;
-  }
-
-  @VisibleForTesting
-  public SCMSafeModeManager getScmSafeModeManager() {
-    return scmSafeModeManager;
-  }
-
-  @VisibleForTesting
-  public ReplicationManager getReplicationManager() {
-    return replicationManager;
+  public ChillModeHandler getChillModeHandler() {
+    return chillModeHandler;
   }
 
   public void checkAdminAccess(String remoteUser) throws IOException {
@@ -1149,22 +1138,22 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   }
 
   /**
-   * Returns live safe mode container threshold.
+   * Returns live chill mode container threshold.
    *
    * @return String
    */
   @Override
-  public double getSafeModeCurrentContainerThreshold() {
+  public double getChillModeCurrentContainerThreshold() {
     return getCurrentContainerThreshold();
   }
 
   /**
-   * Returns safe mode status.
+   * Returns chill mode status.
    * @return boolean
    */
   @Override
-  public boolean isInSafeMode() {
-    return scmSafeModeManager.getInSafeMode();
+  public boolean isInChillMode() {
+    return scmChillModeManager.getInChillMode();
   }
 
   /**
@@ -1175,16 +1164,16 @@ public final class StorageContainerManager extends ServiceRuntimeInfoImpl
   }
 
   /**
-   * Force SCM out of safe mode.
+   * Force SCM out of chill mode.
    */
-  public boolean exitSafeMode() {
-    scmSafeModeManager.exitSafeMode(eventQueue);
+  public boolean exitChillMode() {
+    scmChillModeManager.exitChillMode(eventQueue);
     return true;
   }
 
   @VisibleForTesting
   public double getCurrentContainerThreshold() {
-    return scmSafeModeManager.getCurrentContainerThreshold();
+    return scmChillModeManager.getCurrentContainerThreshold();
   }
 
   @Override

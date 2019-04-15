@@ -202,11 +202,6 @@ public interface ContractOptions {
   String SUPPORTS_CONTENT_CHECK = "supports-content-check";
 
   /**
-   * Indicates that FS supports unbuffer.
-   */
-  String SUPPORTS_UNBUFFER = "supports-unbuffer";
-
-  /**
    * Maximum path length
    * {@value}
    */

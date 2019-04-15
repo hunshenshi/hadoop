@@ -15,7 +15,7 @@
  * the License.
  */
 
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import org.apache.hadoop.hdds.HddsConfigKeys;
 import org.apache.hadoop.hdds.conf.OzoneConfiguration;
@@ -45,13 +45,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * This class tests OneReplicaPipelineSafeModeRule.
+ * This class tests OneReplicaPipelineChillModeRule.
  */
-public class TestOneReplicaPipelineSafeModeRule {
+public class TestOneReplicaPipelineChillModeRule {
 
   @Rule
   public TemporaryFolder folder = new TemporaryFolder();
-  private OneReplicaPipelineSafeModeRule rule;
+  private OneReplicaPipelineChillModeRule rule;
   private SCMPipelineManager pipelineManager;
   private EventQueue eventQueue;
 
@@ -60,7 +60,7 @@ public class TestOneReplicaPipelineSafeModeRule {
       int pipelineFactorOneCount) throws Exception {
     OzoneConfiguration ozoneConfiguration = new OzoneConfiguration();
     ozoneConfiguration.setBoolean(
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK, true);
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_PIPELINE_AVAILABILITY_CHECK, true);
     ozoneConfiguration.set(HddsConfigKeys.OZONE_METADATA_DIRS,
         folder.newFolder().toString());
 
@@ -84,11 +84,11 @@ public class TestOneReplicaPipelineSafeModeRule {
     createPipelines(pipelineFactorOneCount,
         HddsProtos.ReplicationFactor.ONE);
 
-    SCMSafeModeManager scmSafeModeManager =
-        new SCMSafeModeManager(ozoneConfiguration, containers,
+    SCMChillModeManager scmChillModeManager =
+        new SCMChillModeManager(ozoneConfiguration, containers,
             pipelineManager, eventQueue);
 
-    rule = scmSafeModeManager.getOneReplicaPipelineSafeModeRule();
+    rule = scmChillModeManager.getOneReplicaPipelineChillModeRule();
   }
 
   @Test
@@ -104,7 +104,7 @@ public class TestOneReplicaPipelineSafeModeRule {
 
     GenericTestUtils.LogCapturer logCapturer =
         GenericTestUtils.LogCapturer.captureLogs(
-            LoggerFactory.getLogger(SCMSafeModeManager.class));
+            LoggerFactory.getLogger(SCMChillModeManager.class));
 
     List<Pipeline> pipelines = pipelineManager.getPipelines();
     for (int i = 0; i < pipelineFactorThreeCount -1; i++) {
@@ -141,7 +141,7 @@ public class TestOneReplicaPipelineSafeModeRule {
 
     GenericTestUtils.LogCapturer logCapturer =
         GenericTestUtils.LogCapturer.captureLogs(
-            LoggerFactory.getLogger(SCMSafeModeManager.class));
+            LoggerFactory.getLogger(SCMChillModeManager.class));
 
     List<Pipeline> pipelines =
         pipelineManager.getPipelines(HddsProtos.ReplicationType.RATIS,

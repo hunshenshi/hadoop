@@ -34,8 +34,8 @@ public enum SCMAction implements AuditAction {
   LIST_PIPELINE,
   CLOSE_PIPELINE,
   DELETE_CONTAINER,
-  IN_SAFE_MODE,
-  FORCE_EXIT_SAFE_MODE;
+  IN_CHILL_MODE,
+  FORCE_EXIT_CHILL_MODE;
 
   @Override
   public String getAction() {

@@ -95,12 +95,13 @@ public class DownloadAndImportReplicator implements ContainerReplicator {
       LOG.error(
           "Can't import the downloaded container data id=" + containerID,
           e);
-    } finally {
       try {
         Files.delete(tarFilePath);
       } catch (Exception ex) {
-        LOG.error("Got exception while deleting downloaded container file: "
-            + tarFilePath.toAbsolutePath().toString(), ex);
+        LOG.error(
+            "Container import is failed and the downloaded file can't be "
+                + "deleted: "
+                + tarFilePath.toAbsolutePath().toString());
       }
     }
   }

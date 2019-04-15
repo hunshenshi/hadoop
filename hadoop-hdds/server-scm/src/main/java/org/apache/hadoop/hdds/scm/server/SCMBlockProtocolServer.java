@@ -223,9 +223,9 @@ public class SCMBlockProtocolServer implements
                 scmEx)
         );
         switch (scmEx.getResult()) {
-        case SAFE_MODE_EXCEPTION:
+        case CHILL_MODE_EXCEPTION:
           resultCode = ScmBlockLocationProtocolProtos.DeleteScmBlockResult
-              .Result.safeMode;
+              .Result.chillMode;
           break;
         case FAILED_TO_FIND_BLOCK:
           resultCode = ScmBlockLocationProtocolProtos.DeleteScmBlockResult

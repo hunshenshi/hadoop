@@ -53,9 +53,6 @@ app.config(['$routeProvider',
     }).when('/deploy/:id', {
       templateUrl: 'partials/deploy.html',
       controller: 'DeployAppController'
-    }).when('/upgrade/:id', {
-      templateUrl: 'partials/upgrade.html',
-      controller: 'UpgradeAppController'
     }).otherwise({
       redirectTo: '/'
     });

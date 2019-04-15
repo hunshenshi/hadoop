@@ -160,7 +160,7 @@ public class BlockManagerImpl implements BlockManager {
     }
     byte[] kData = db.get(Longs.toByteArray(blockID.getLocalID()));
     if (kData == null) {
-      throw new StorageContainerException("Unable to find the block." + blockID,
+      throw new StorageContainerException("Unable to find the block.",
           NO_SUCH_BLOCK);
     }
     ContainerProtos.BlockData blockData =

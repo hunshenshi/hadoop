@@ -23,12 +23,10 @@ import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationFactor;
 import org.apache.hadoop.hdds.protocol.proto.HddsProtos.ReplicationType;
 import org.apache.hadoop.hdds.scm.block.BlockManager;
 import org.apache.hadoop.hdds.scm.block.BlockManagerImpl;
-import org.apache.hadoop.hdds.scm.safemode.SafeModeHandler;
+import org.apache.hadoop.hdds.scm.chillmode.ChillModeHandler;
 import org.apache.hadoop.hdds.scm.container.ReplicationManager;
 import org.apache.hadoop.hdds.scm.events.SCMEvents;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException;
-import org.apache.hadoop.hdds.scm.pipeline.PipelineManager;
-import org.apache.hadoop.hdds.scm.pipeline.SCMPipelineManager;
 import org.apache.hadoop.hdds.server.events.EventQueue;
 import org.apache.hadoop.test.LambdaTestUtils;
 import org.junit.After;
@@ -52,11 +50,9 @@ public class TestSCMClientProtocolServer {
     BlockManager blockManager = Mockito.mock(BlockManagerImpl.class);
     ReplicationManager replicationManager =
         Mockito.mock(ReplicationManager.class);
-    PipelineManager pipelineManager = Mockito.mock(SCMPipelineManager.class);
-    SafeModeHandler safeModeHandler = new SafeModeHandler(config,
-        scmClientProtocolServer, blockManager, replicationManager,
-        pipelineManager);
-    eventQueue.addHandler(SCMEvents.SAFE_MODE_STATUS, safeModeHandler);
+    ChillModeHandler chillModeHandler = new ChillModeHandler(config,
+        scmClientProtocolServer, blockManager, replicationManager);
+    eventQueue.addHandler(SCMEvents.CHILL_MODE_STATUS, chillModeHandler);
   }
 
   @After
@@ -64,9 +60,9 @@ public class TestSCMClientProtocolServer {
   }
 
   @Test
-  public void testAllocateContainerFailureInSafeMode() throws Exception {
+  public void testAllocateContainerFailureInChillMode() throws Exception {
     LambdaTestUtils.intercept(SCMException.class,
-        "SafeModePrecheck failed for allocateContainer", () -> {
+        "hillModePrecheck failed for allocateContainer", () -> {
           scmClientProtocolServer.allocateContainer(
               ReplicationType.STAND_ALONE, ReplicationFactor.ONE, "");
         });

@@ -35,7 +35,7 @@ import org.apache.hadoop.hdds.protocol.proto
 import org.apache.hadoop.hdds.scm.HddsServerUtil;
 import org.apache.hadoop.hdds.scm.ScmInfo;
 import org.apache.hadoop.hdds.scm.ScmUtils;
-import org.apache.hadoop.hdds.scm.safemode.SafeModePrecheck;
+import org.apache.hadoop.hdds.scm.chillmode.ChillModePrecheck;
 import org.apache.hadoop.hdds.scm.container.ContainerID;
 import org.apache.hadoop.hdds.scm.container.ContainerNotFoundException;
 import org.apache.hadoop.hdds.scm.container.ContainerReplica;
@@ -101,13 +101,13 @@ public class SCMClientProtocolServer implements
   private final InetSocketAddress clientRpcAddress;
   private final StorageContainerManager scm;
   private final OzoneConfiguration conf;
-  private SafeModePrecheck safeModePrecheck;
+  private ChillModePrecheck chillModePrecheck;
 
   public SCMClientProtocolServer(OzoneConfiguration conf,
       StorageContainerManager scm) throws IOException {
     this.scm = scm;
     this.conf = conf;
-    safeModePrecheck = new SafeModePrecheck(conf);
+    chillModePrecheck = new ChillModePrecheck(conf);
     final int handlerCount =
         conf.getInt(OZONE_SCM_HANDLER_COUNT_KEY,
             OZONE_SCM_HANDLER_COUNT_DEFAULT);
@@ -177,7 +177,7 @@ public class SCMClientProtocolServer implements
   public ContainerWithPipeline allocateContainer(HddsProtos.ReplicationType
       replicationType, HddsProtos.ReplicationFactor factor,
       String owner) throws IOException {
-    ScmUtils.preCheck(ScmOps.allocateContainer, safeModePrecheck);
+    ScmUtils.preCheck(ScmOps.allocateContainer, chillModePrecheck);
     getScm().checkAdminAccess(getRpcRemoteUsername());
 
     final ContainerInfo container = scm.getContainerManager()
@@ -220,14 +220,14 @@ public class SCMClientProtocolServer implements
     auditMap.put("containerID", String.valueOf(containerID));
     boolean auditSuccess = true;
     try {
-      if (safeModePrecheck.isInSafeMode()) {
+      if (chillModePrecheck.isInChillMode()) {
         ContainerInfo contInfo = scm.getContainerManager()
             .getContainer(ContainerID.valueof(containerID));
         if (contInfo.isOpen()) {
           if (!hasRequiredReplicas(contInfo)) {
             throw new SCMException("Open container " + containerID + " doesn't"
                 + " have enough replicas to service this operation in "
-                + "Safe mode.", ResultCodes.SAFE_MODE_EXCEPTION);
+                + "Chill mode.", ResultCodes.CHILL_MODE_EXCEPTION);
           }
         }
       }
@@ -446,31 +446,31 @@ public class SCMClientProtocolServer implements
   }
 
   /**
-   * Check if SCM is in safe mode.
+   * Check if SCM is in chill mode.
    *
-   * @return Returns true if SCM is in safe mode else returns false.
+   * @return Returns true if SCM is in chill mode else returns false.
    * @throws IOException
    */
   @Override
-  public boolean inSafeMode() throws IOException {
+  public boolean inChillMode() throws IOException {
     AUDIT.logReadSuccess(
-        buildAuditMessageForSuccess(SCMAction.IN_SAFE_MODE, null)
+        buildAuditMessageForSuccess(SCMAction.IN_CHILL_MODE, null)
     );
-    return scm.isInSafeMode();
+    return scm.isInChillMode();
   }
 
   /**
-   * Force SCM out of Safe mode.
+   * Force SCM out of Chill mode.
    *
    * @return returns true if operation is successful.
    * @throws IOException
    */
   @Override
-  public boolean forceExitSafeMode() throws IOException {
+  public boolean forceExitChillMode() throws IOException {
     AUDIT.logWriteSuccess(
-        buildAuditMessageForSuccess(SCMAction.FORCE_EXIT_SAFE_MODE, null)
+        buildAuditMessageForSuccess(SCMAction.FORCE_EXIT_CHILL_MODE, null)
     );
-    return scm.exitSafeMode();
+    return scm.exitChillMode();
   }
 
   /**
@@ -498,10 +498,10 @@ public class SCMClientProtocolServer implements
   }
 
   /**
-   * Set safe mode status based on .
+   * Set chill mode status based on .
    */
-  public boolean getSafeModeStatus() {
-    return safeModePrecheck.isInSafeMode();
+  public boolean getChillModeStatus() {
+    return chillModePrecheck.isInChillMode();
   }
 
 
@@ -556,11 +556,11 @@ public class SCMClientProtocolServer implements
   }
 
   /**
-   * Set SafeMode status.
+   * Set ChillMode status.
    *
-   * @param safeModeStatus
+   * @param chillModeStatus
    */
-  public void setSafeModeStatus(boolean safeModeStatus) {
-    safeModePrecheck.setInSafeMode(safeModeStatus);
+  public void setChillModeStatus(boolean chillModeStatus) {
+    chillModePrecheck.setInChillMode(chillModeStatus);
   }
 }

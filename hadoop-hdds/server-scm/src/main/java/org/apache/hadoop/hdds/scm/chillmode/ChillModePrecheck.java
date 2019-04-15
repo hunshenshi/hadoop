@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.hadoop.conf.Configuration;
@@ -26,32 +26,32 @@ import org.apache.hadoop.hdds.scm.exceptions.SCMException;
 import org.apache.hadoop.hdds.scm.exceptions.SCMException.ResultCodes;
 
 /**
- * Safe mode pre-check for SCM operations.
+ * Chill mode pre-check for SCM operations.
  * */
-public class SafeModePrecheck implements Precheck<ScmOps> {
+public class ChillModePrecheck implements Precheck<ScmOps> {
 
-  private AtomicBoolean inSafeMode;
-  public static final String PRECHECK_TYPE = "SafeModePrecheck";
+  private AtomicBoolean inChillMode;
+  public static final String PRECHECK_TYPE = "ChillModePrecheck";
 
-  public SafeModePrecheck(Configuration conf) {
-    boolean safeModeEnabled = conf.getBoolean(
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED,
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED_DEFAULT);
-    if (safeModeEnabled) {
-      inSafeMode = new AtomicBoolean(true);
+  public ChillModePrecheck(Configuration conf) {
+    boolean chillModeEnabled = conf.getBoolean(
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_ENABLED,
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_ENABLED_DEFAULT);
+    if (chillModeEnabled) {
+      inChillMode = new AtomicBoolean(true);
     } else {
-      inSafeMode = new AtomicBoolean(false);
+      inChillMode = new AtomicBoolean(false);
     }
   }
 
   @Override
   public boolean check(ScmOps op) throws SCMException {
-    if (inSafeMode.get() && SafeModeRestrictedOps
-        .isRestrictedInSafeMode(op)) {
-      throw new SCMException("SafeModePrecheck failed for " + op,
-          ResultCodes.SAFE_MODE_EXCEPTION);
+    if (inChillMode.get() && ChillModeRestrictedOps
+        .isRestrictedInChillMode(op)) {
+      throw new SCMException("ChillModePrecheck failed for " + op,
+          ResultCodes.CHILL_MODE_EXCEPTION);
     }
-    return inSafeMode.get();
+    return inChillMode.get();
   }
 
   @Override
@@ -59,11 +59,11 @@ public class SafeModePrecheck implements Precheck<ScmOps> {
     return PRECHECK_TYPE;
   }
 
-  public boolean isInSafeMode() {
-    return inSafeMode.get();
+  public boolean isInChillMode() {
+    return inChillMode.get();
   }
 
-  public void setInSafeMode(boolean inSafeMode) {
-    this.inSafeMode.set(inSafeMode);
+  public void setInChillMode(boolean inChillMode) {
+    this.inChillMode.set(inChillMode);
   }
 }

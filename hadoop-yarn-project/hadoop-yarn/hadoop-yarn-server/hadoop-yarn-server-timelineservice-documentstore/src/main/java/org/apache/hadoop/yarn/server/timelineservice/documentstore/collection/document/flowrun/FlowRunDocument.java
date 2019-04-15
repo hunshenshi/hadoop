@@ -97,14 +97,10 @@ public class FlowRunDocument implements TimelineDocument<FlowRunDocument> {
 
   private void aggregateMetrics(
       Map<String, TimelineMetricSubDoc> metricSubDocMap) {
-    for(Map.Entry<String, TimelineMetricSubDoc> metricEntry :
-        metricSubDocMap.entrySet()) {
-      final String metricId = metricEntry.getKey();
-      final TimelineMetricSubDoc metricValue = metricEntry.getValue();
-
+    for(String metricId : metricSubDocMap.keySet()) {
       if (this.metrics.containsKey(metricId)) {
         TimelineMetric incomingMetric =
-            metricValue.fetchTimelineMetric();
+            metricSubDocMap.get(metricId).fetchTimelineMetric();
         TimelineMetric baseMetric =
             this.metrics.get(metricId).fetchTimelineMetric();
         if (incomingMetric.getValues().size() > 0) {
@@ -115,7 +111,7 @@ public class FlowRunDocument implements TimelineDocument<FlowRunDocument> {
               baseMetric.getId());
         }
       } else {
-        this.metrics.put(metricId, metricValue);
+        this.metrics.put(metricId, metricSubDocMap.get(metricId));
       }
     }
   }
@@ -139,8 +135,7 @@ public class FlowRunDocument implements TimelineDocument<FlowRunDocument> {
       baseMetric = TimelineMetricOperation.REPLACE
           .aggregate(incomingMetric, baseMetric, null);
     default:
-      LOG.warn("Unknown TimelineMetricOperation: {}",
-          baseMetric.getRealtimeAggregationOp());
+      //NoOP
     }
     return baseMetric;
   }

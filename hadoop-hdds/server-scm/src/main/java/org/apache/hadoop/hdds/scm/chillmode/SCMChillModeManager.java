@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -36,29 +36,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * StorageContainerManager enters safe mode on startup to allow system to
+ * StorageContainerManager enters chill mode on startup to allow system to
  * reach a stable state before becoming fully functional. SCM will wait
- * for certain resources to be reported before coming out of safe mode.
+ * for certain resources to be reported before coming out of chill mode.
  *
- * SafeModeExitRule defines format to define new rules which must be satisfied
- * to exit Safe mode.
+ * ChillModeExitRule defines format to define new rules which must be satisfied
+ * to exit Chill mode.
  *
- * Current SafeMode rules:
- * 1. ContainerSafeModeRule:
+ * Current ChillMode rules:
+ * 1. ContainerChillModeRule:
  * On every new datanode registration, it fires
  * {@link SCMEvents#NODE_REGISTRATION_CONT_REPORT}.  This rule handles this
  * event. This rule process this report, increment the
  * containerWithMinReplicas count when this reported replica is in the
  * containerMap. Then validates if cutoff threshold for containers is meet.
  *
- * 2. DatanodeSafeModeRule:
+ * 2. DatanodeChillModeRule:
  * On every new datanode registration, it fires
  * {@link SCMEvents#NODE_REGISTRATION_CONT_REPORT}. This rule handles this
  * event. This rule process this report, and check if this is new node, add
  * to its reported node list. Then validate it cutoff threshold for minimum
  * number of datanode registered is met or not.
  *
- * 3. HealthyPipelineSafeModeRule:
+ * 3. HealthyPipelineChillModeRule:
  * Once the pipelineReportHandler processes the
  * {@link SCMEvents#PIPELINE_REPORT}, it fires
  * {@link SCMEvents#PROCESSED_PIPELINE_REPORT}. This rule handles this
@@ -66,7 +66,7 @@ import org.slf4j.LoggerFactory;
  * and increments current healthy pipeline count. Then validate it cutoff
  * threshold for healthy pipeline is met or not.
  *
- * 4. OneReplicaPipelineSafeModeRule:
+ * 4. OneReplicaPipelineChillModeRule:
  * Once the pipelineReportHandler processes the
  * {@link SCMEvents#PIPELINE_REPORT}, it fires
  * {@link SCMEvents#PROCESSED_PIPELINE_REPORT}. This rule handles this
@@ -75,19 +75,19 @@ import org.slf4j.LoggerFactory;
  * per pipeline is met or not.
  *
  */
-public class SCMSafeModeManager {
+public class SCMChillModeManager {
 
   private static final Logger LOG =
-      LoggerFactory.getLogger(SCMSafeModeManager.class);
-  private final boolean isSafeModeEnabled;
-  private AtomicBoolean inSafeMode = new AtomicBoolean(true);
+      LoggerFactory.getLogger(SCMChillModeManager.class);
+  private final boolean isChillModeEnabled;
+  private AtomicBoolean inChillMode = new AtomicBoolean(true);
 
-  private Map<String, SafeModeExitRule> exitRules = new HashMap(1);
+  private Map<String, ChillModeExitRule> exitRules = new HashMap(1);
   private Configuration config;
-  private static final String CONT_EXIT_RULE = "ContainerSafeModeRule";
-  private static final String DN_EXIT_RULE = "DataNodeSafeModeRule";
+  private static final String CONT_EXIT_RULE = "ContainerChillModeRule";
+  private static final String DN_EXIT_RULE = "DataNodeChillModeRule";
   private static final String HEALTHY_PIPELINE_EXIT_RULE =
-      "HealthyPipelineSafeModeRule";
+      "HealthyPipelineChillModeRule";
   private static final String ATLEAST_ONE_DATANODE_REPORTED_PIPELINE_EXIT_RULE =
       "AtleastOneDatanodeReportedRule";
 
@@ -96,57 +96,57 @@ public class SCMSafeModeManager {
   private final EventQueue eventPublisher;
   private final PipelineManager pipelineManager;
 
-  public SCMSafeModeManager(Configuration conf,
+  public SCMChillModeManager(Configuration conf,
       List<ContainerInfo> allContainers, PipelineManager pipelineManager,
       EventQueue eventQueue) {
     this.config = conf;
     this.pipelineManager = pipelineManager;
     this.eventPublisher = eventQueue;
-    this.isSafeModeEnabled = conf.getBoolean(
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED,
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED_DEFAULT);
+    this.isChillModeEnabled = conf.getBoolean(
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_ENABLED,
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_ENABLED_DEFAULT);
 
-    if (isSafeModeEnabled) {
-      ContainerSafeModeRule containerSafeModeRule =
-          new ContainerSafeModeRule(CONT_EXIT_RULE, eventQueue, config,
+    if (isChillModeEnabled) {
+      ContainerChillModeRule containerChillModeRule =
+          new ContainerChillModeRule(CONT_EXIT_RULE, eventQueue, config,
               allContainers, this);
-      DataNodeSafeModeRule dataNodeSafeModeRule =
-          new DataNodeSafeModeRule(DN_EXIT_RULE, eventQueue, config, this);
-      exitRules.put(CONT_EXIT_RULE, containerSafeModeRule);
-      exitRules.put(DN_EXIT_RULE, dataNodeSafeModeRule);
+      DataNodeChillModeRule dataNodeChillModeRule =
+          new DataNodeChillModeRule(DN_EXIT_RULE, eventQueue, config, this);
+      exitRules.put(CONT_EXIT_RULE, containerChillModeRule);
+      exitRules.put(DN_EXIT_RULE, dataNodeChillModeRule);
       if (conf.getBoolean(
-          HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK,
-          HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK_DEFAULT)
+          HddsConfigKeys.HDDS_SCM_CHILLMODE_PIPELINE_AVAILABILITY_CHECK,
+          HddsConfigKeys.HDDS_SCM_CHILLMODE_PIPELINE_AVAILABILITY_CHECK_DEFAULT)
           && pipelineManager != null) {
-        HealthyPipelineSafeModeRule healthyPipelineSafeModeRule =
-            new HealthyPipelineSafeModeRule(HEALTHY_PIPELINE_EXIT_RULE,
+        HealthyPipelineChillModeRule healthyPipelineChillModeRule =
+            new HealthyPipelineChillModeRule(HEALTHY_PIPELINE_EXIT_RULE,
                 eventQueue, pipelineManager,
                 this, config);
-        OneReplicaPipelineSafeModeRule oneReplicaPipelineSafeModeRule =
-            new OneReplicaPipelineSafeModeRule(
+        OneReplicaPipelineChillModeRule oneReplicaPipelineChillModeRule =
+            new OneReplicaPipelineChillModeRule(
                 ATLEAST_ONE_DATANODE_REPORTED_PIPELINE_EXIT_RULE, eventQueue,
                 pipelineManager, this, conf);
-        exitRules.put(HEALTHY_PIPELINE_EXIT_RULE, healthyPipelineSafeModeRule);
+        exitRules.put(HEALTHY_PIPELINE_EXIT_RULE, healthyPipelineChillModeRule);
         exitRules.put(ATLEAST_ONE_DATANODE_REPORTED_PIPELINE_EXIT_RULE,
-            oneReplicaPipelineSafeModeRule);
+            oneReplicaPipelineChillModeRule);
       }
-      emitSafeModeStatus();
+      emitChillModeStatus();
     } else {
-      exitSafeMode(eventQueue);
+      exitChillMode(eventQueue);
     }
   }
 
   /**
-   * Emit Safe mode status.
+   * Emit Chill mode status.
    */
   @VisibleForTesting
-  public void emitSafeModeStatus() {
-    eventPublisher.fireEvent(SCMEvents.SAFE_MODE_STATUS,
-        new SafeModeStatus(getInSafeMode()));
+  public void emitChillModeStatus() {
+    eventPublisher.fireEvent(SCMEvents.CHILL_MODE_STATUS,
+        new ChillModeStatus(getInChillMode()));
   }
 
 
-  public synchronized void validateSafeModeExitRules(String ruleName,
+  public synchronized void validateChillModeExitRules(String ruleName,
       EventPublisher eventQueue) {
 
     if (exitRules.get(ruleName) != null) {
@@ -158,47 +158,47 @@ public class SCMSafeModeManager {
 
 
     if (validatedRules.size() == exitRules.size()) {
-      // All rules are satisfied, we can exit safe mode.
-      LOG.info("ScmSafeModeManager, all rules are successfully validated");
-      exitSafeMode(eventQueue);
+      // All rules are satisfied, we can exit chill mode.
+      LOG.info("ScmChillModeManager, all rules are successfully validated");
+      exitChillMode(eventQueue);
     }
 
   }
 
   /**
-   * Exit safe mode. It does following actions:
-   * 1. Set safe mode status to false.
+   * Exit chill mode. It does following actions:
+   * 1. Set chill mode status to false.
    * 2. Emits START_REPLICATION for ReplicationManager.
    * 3. Cleanup resources.
-   * 4. Emit safe mode status.
+   * 4. Emit chill mode status.
    * @param eventQueue
    */
   @VisibleForTesting
-  public void exitSafeMode(EventPublisher eventQueue) {
-    LOG.info("SCM exiting safe mode.");
-    setInSafeMode(false);
+  public void exitChillMode(EventPublisher eventQueue) {
+    LOG.info("SCM exiting chill mode.");
+    setInChillMode(false);
 
     // TODO: Remove handler registration as there is no need to listen to
     // register events anymore.
 
-    emitSafeModeStatus();
-    // TODO: #CLUTIL if we reenter safe mode the fixed interval pipeline
+    emitChillModeStatus();
+    // TODO: #CLUTIL if we reenter chill mode the fixed interval pipeline
     // creation job needs to stop
     pipelineManager.startPipelineCreator();
   }
 
-  public boolean getInSafeMode() {
-    if (!isSafeModeEnabled) {
+  public boolean getInChillMode() {
+    if (!isChillModeEnabled) {
       return false;
     }
-    return inSafeMode.get();
+    return inChillMode.get();
   }
 
   /**
-   * Set safe mode status.
+   * Set chill mode status.
    */
-  public void setInSafeMode(boolean inSafeMode) {
-    this.inSafeMode.set(inSafeMode);
+  public void setInChillMode(boolean inChillMode) {
+    this.inChillMode.set(inChillMode);
   }
 
   public static Logger getLogger() {
@@ -207,35 +207,35 @@ public class SCMSafeModeManager {
 
   @VisibleForTesting
   public double getCurrentContainerThreshold() {
-    return ((ContainerSafeModeRule) exitRules.get(CONT_EXIT_RULE))
+    return ((ContainerChillModeRule) exitRules.get(CONT_EXIT_RULE))
         .getCurrentContainerThreshold();
   }
 
   @VisibleForTesting
-  public HealthyPipelineSafeModeRule getHealthyPipelineSafeModeRule() {
-    return (HealthyPipelineSafeModeRule)
+  public HealthyPipelineChillModeRule getHealthyPipelineChillModeRule() {
+    return (HealthyPipelineChillModeRule)
         exitRules.get(HEALTHY_PIPELINE_EXIT_RULE);
   }
 
   @VisibleForTesting
-  public OneReplicaPipelineSafeModeRule getOneReplicaPipelineSafeModeRule() {
-    return (OneReplicaPipelineSafeModeRule)
+  public OneReplicaPipelineChillModeRule getOneReplicaPipelineChillModeRule() {
+    return (OneReplicaPipelineChillModeRule)
         exitRules.get(ATLEAST_ONE_DATANODE_REPORTED_PIPELINE_EXIT_RULE);
   }
 
 
   /**
-   * Class used during SafeMode status event.
+   * Class used during ChillMode status event.
    */
-  public static class SafeModeStatus {
+  public static class ChillModeStatus {
 
-    private boolean safeModeStatus;
-    public SafeModeStatus(boolean safeModeState) {
-      this.safeModeStatus = safeModeState;
+    private boolean chillModeStatus;
+    public ChillModeStatus(boolean chillModeState) {
+      this.chillModeStatus = chillModeState;
     }
 
-    public boolean getSafeModeStatus() {
-      return safeModeStatus;
+    public boolean getChillModeStatus() {
+      return chillModeStatus;
     }
   }
 

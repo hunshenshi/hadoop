@@ -308,7 +308,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.kerby</groupId>
-      <artifactId>kerb-core</artifactId>
+      <artifactId>kerb-simplekdc</artifactId>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>

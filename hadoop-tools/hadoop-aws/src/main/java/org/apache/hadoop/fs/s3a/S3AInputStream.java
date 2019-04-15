@@ -25,17 +25,14 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.SSECustomerKey;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.classification.InterfaceAudience;
 import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.fs.CanSetReadahead;
-import org.apache.hadoop.fs.CanUnbuffer;
 import org.apache.hadoop.fs.FSExceptionMessages;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.PathIOException;
-import org.apache.hadoop.fs.StreamCapabilities;
 import org.apache.hadoop.fs.s3a.impl.ChangeTracker;
 
 import org.slf4j.Logger;
@@ -46,7 +43,6 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 
 import static org.apache.commons.lang3.StringUtils.isNotEmpty;
-import static org.apache.hadoop.util.StringUtils.toLowerCase;
 
 /**
  * The input stream for an S3A object.
@@ -67,8 +63,7 @@ import static org.apache.hadoop.util.StringUtils.toLowerCase;
  */
 @InterfaceAudience.Private
 @InterfaceStability.Evolving
-public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
-        CanUnbuffer, StreamCapabilities {
+public class S3AInputStream extends FSInputStream implements CanSetReadahead {
 
   public static final String E_NEGATIVE_READAHEAD_VALUE
       = "Negative readahead value";
@@ -180,7 +175,7 @@ public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
   private synchronized void reopen(String reason, long targetPos, long length,
           boolean forceAbort) throws IOException {
 
-    if (isObjectStreamOpen()) {
+    if (wrappedStream != null) {
       closeStream("reopen(" + reason + ")", contentRangeFinish, forceAbort);
     }
 
@@ -547,7 +542,7 @@ public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
    */
   @Retries.OnceRaw
   private void closeStream(String reason, long length, boolean forceAbort) {
-    if (isObjectStreamOpen()) {
+    if (wrappedStream != null) {
 
       // if the amount of data remaining in the current request is greater
       // than the readahead value: abort.
@@ -610,11 +605,12 @@ public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
   @InterfaceStability.Unstable
   public synchronized boolean resetConnection() throws IOException {
     checkNotClosed();
-    if (isObjectStreamOpen()) {
+    boolean connectionOpen = wrappedStream != null;
+    if (connectionOpen) {
       LOG.info("Forced reset of connection to {}", uri);
       closeStream("reset()", contentRangeFinish, true);
     }
-    return isObjectStreamOpen();
+    return connectionOpen;
   }
 
   @Override
@@ -681,7 +677,7 @@ public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
           "S3AInputStream{");
       sb.append(uri);
       sb.append(" wrappedStream=")
-          .append(isObjectStreamOpen() ? "open" : "closed");
+          .append(wrappedStream != null ? "open" : "closed");
       sb.append(" read policy=").append(inputPolicy);
       sb.append(" pos=").append(pos);
       sb.append(" nextReadPos=").append(nextReadPos);
@@ -817,26 +813,5 @@ public class S3AInputStream extends FSInputStream implements  CanSetReadahead,
       Preconditions.checkArgument(readahead >= 0, E_NEGATIVE_READAHEAD_VALUE);
       return readahead;
     }
-  }
-
-  @Override
-  public synchronized void unbuffer() {
-    closeStream("unbuffer()", contentRangeFinish, false);
-  }
-
-  @Override
-  public boolean hasCapability(String capability) {
-    switch (toLowerCase(capability)) {
-    case StreamCapabilities.READAHEAD:
-    case StreamCapabilities.UNBUFFER:
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  @VisibleForTesting
-  boolean isObjectStreamOpen() {
-    return wrappedStream != null;
   }
 }

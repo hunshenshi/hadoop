@@ -48,12 +48,16 @@ import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.apache.hadoop.hdds.scm.storage.ContainerProtocolCalls
     .putBlockAsync;
@@ -93,6 +97,7 @@ public class BlockOutputStream extends OutputStream {
   private int chunkSize;
   private final long streamBufferFlushSize;
   private final long streamBufferMaxSize;
+  private final long watchTimeout;
   private BufferPool bufferPool;
   // The IOException will be set by response handling thread in case there is an
   // exception received in the response. If the exception is set, the next
@@ -106,6 +111,10 @@ public class BlockOutputStream extends OutputStream {
   // effective data write attempted so far for the block
   private long writtenDataLength;
 
+  // total data which has been successfully flushed and acknowledged
+  // by all servers
+  private long totalAckDataLength;
+
   // List containing buffers for which the putBlock call will
   // update the length in the datanodes. This list will just maintain
   // references to the buffers in the BufferPool which will be cleared
@@ -114,10 +123,17 @@ public class BlockOutputStream extends OutputStream {
   // which got written between successive putBlock calls.
   private List<ByteBuffer> bufferList;
 
-  // This object will maintain the commitIndexes and byteBufferList in order
+  // future Map to hold up all putBlock futures
+  private ConcurrentHashMap<Long,
+      CompletableFuture<ContainerProtos.ContainerCommandResponseProto>>
+      futureMap;
+
+  // The map should maintain the keys (logIndexes) in order so that while
+  // removing we always end up updating incremented data flushed length.
   // Also, corresponding to the logIndex, the corresponding list of buffers will
   // be released from the buffer pool.
-  private final CommitWatcher commitWatcher;
+  private ConcurrentSkipListMap<Long, List<ByteBuffer>>
+      commitIndex2flushedDataMap;
 
   private List<DatanodeDetails> failedServers;
 
@@ -159,17 +175,20 @@ public class BlockOutputStream extends OutputStream {
     this.chunkIndex = 0;
     this.streamBufferFlushSize = streamBufferFlushSize;
     this.streamBufferMaxSize = streamBufferMaxSize;
+    this.watchTimeout = watchTimeout;
     this.bufferPool = bufferPool;
     this.checksumType = checksumType;
     this.bytesPerChecksum = bytesPerChecksum;
 
     // A single thread executor handle the responses of async requests
     responseExecutor = Executors.newSingleThreadExecutor();
-    commitWatcher = new CommitWatcher(bufferPool, xceiverClient, watchTimeout);
-    bufferList = null;
+    commitIndex2flushedDataMap = new ConcurrentSkipListMap<>();
+    totalAckDataLength = 0;
+    futureMap = new ConcurrentHashMap<>();
     totalDataFlushedLength = 0;
     writtenDataLength = 0;
     failedServers = Collections.emptyList();
+    bufferList = null;
     ioException = new AtomicReference<>(null);
   }
 
@@ -179,7 +198,7 @@ public class BlockOutputStream extends OutputStream {
   }
 
   public long getTotalAckDataLength() {
-    return commitWatcher.getTotalAckDataLength();
+    return totalAckDataLength;
   }
 
   public long getWrittenDataLength() {
@@ -211,7 +230,7 @@ public class BlockOutputStream extends OutputStream {
 
   @VisibleForTesting
   public Map<Long, List<ByteBuffer>> getCommitIndex2flushedDataMap() {
-    return commitWatcher.getCommitIndex2flushedDataMap();
+    return commitIndex2flushedDataMap;
   }
 
   @Override
@@ -315,6 +334,34 @@ public class BlockOutputStream extends OutputStream {
   }
 
   /**
+   * just update the totalAckDataLength. In case of failure,
+   * we will read the data starting from totalAckDataLength.
+   */
+  private void updateFlushIndex(List<Long> indexes) {
+    Preconditions.checkArgument(!commitIndex2flushedDataMap.isEmpty());
+    for (long index : indexes) {
+      Preconditions.checkState(commitIndex2flushedDataMap.containsKey(index));
+      List<ByteBuffer> buffers = commitIndex2flushedDataMap.remove(index);
+      long length = buffers.stream().mapToLong(value -> {
+        int pos = value.position();
+        Preconditions.checkArgument(pos <= chunkSize);
+        return pos;
+      }).sum();
+      // totalAckDataLength replicated yet should always be incremented
+      // with the current length being returned from commitIndex2flushedDataMap.
+      totalAckDataLength += length;
+      LOG.debug("Total data successfully replicated: " + totalAckDataLength);
+      futureMap.remove(totalAckDataLength);
+      // Flush has been committed to required servers successful.
+      // just release the current buffer from the buffer pool corresponding
+      // to the buffers that have been committed with the putBlock call.
+      for (ByteBuffer byteBuffer : buffers) {
+        bufferPool.releaseBuffer(byteBuffer);
+      }
+    }
+  }
+
+  /**
    * This is a blocking call. It will wait for the flush till the commit index
    * at the head of the commitIndex2flushedDataMap gets replicated to all or
    * majority.
@@ -323,7 +370,7 @@ public class BlockOutputStream extends OutputStream {
   private void handleFullBuffer() throws IOException {
     try {
       checkOpen();
-      if (!commitWatcher.getFutureMap().isEmpty()) {
+      if (!futureMap.isEmpty()) {
         waitOnFlushFutures();
       }
     } catch (InterruptedException | ExecutionException e) {
@@ -331,31 +378,47 @@ public class BlockOutputStream extends OutputStream {
       adjustBuffersOnException();
       throw getIoException();
     }
-    watchForCommit(true);
+    if (!commitIndex2flushedDataMap.isEmpty()) {
+      watchForCommit(
+          commitIndex2flushedDataMap.keySet().stream().mapToLong(v -> v)
+              .min().getAsLong());
+    }
   }
 
+  private void adjustBuffers(long commitIndex) {
+    List<Long> keyList = commitIndex2flushedDataMap.keySet().stream()
+        .filter(p -> p <= commitIndex).collect(Collectors.toList());
+    if (keyList.isEmpty()) {
+      return;
+    } else {
+      updateFlushIndex(keyList);
+    }
+  }
 
   // It may happen that once the exception is encountered , we still might
   // have successfully flushed up to a certain index. Make sure the buffers
   // only contain data which have not been sufficiently replicated
   private void adjustBuffersOnException() {
-    commitWatcher.releaseBuffersOnException();
+    adjustBuffers(xceiverClient.getReplicatedMinCommitIndex());
   }
 
   /**
    * calls watchForCommit API of the Ratis Client. For Standalone client,
    * it is a no op.
-   * @param bufferFull flag indicating whether bufferFull condition is hit or
-   *              its called as part flush/close
+   * @param commitIndex log index to watch for
    * @return minimum commit index replicated to all nodes
    * @throws IOException IOException in case watch gets timed out
    */
-  private void watchForCommit(boolean bufferFull) throws IOException {
+  private void watchForCommit(long commitIndex) throws IOException {
     checkOpen();
+    Preconditions.checkState(!commitIndex2flushedDataMap.isEmpty());
+    long index;
     try {
-      XceiverClientReply reply = bufferFull ?
-          commitWatcher.watchOnFirstIndex() : commitWatcher.watchOnLastIndex();
-      if (reply != null) {
+      XceiverClientReply reply =
+          xceiverClient.watchForCommit(commitIndex, watchTimeout);
+      if (reply == null) {
+        index = 0;
+      } else {
         List<DatanodeDetails> dnList = reply.getDatanodes();
         if (!dnList.isEmpty()) {
           if (failedServers.isEmpty()) {
@@ -363,9 +426,13 @@ public class BlockOutputStream extends OutputStream {
           }
           failedServers.addAll(dnList);
         }
+        index = reply.getLogIndex();
       }
-    } catch (IOException ioe) {
-      setIoException(ioe);
+      adjustBuffers(index);
+    } catch (TimeoutException | InterruptedException | ExecutionException e) {
+      LOG.warn("watchForCommit failed for index " + commitIndex, e);
+      setIoException(e);
+      adjustBuffersOnException();
       throw getIoException();
     }
   }
@@ -404,14 +471,14 @@ public class BlockOutputStream extends OutputStream {
           blockID = responseBlockID;
           LOG.debug(
               "Adding index " + asyncReply.getLogIndex() + " commitMap size "
-                  + commitWatcher.getCommitInfoMapSize() + " flushLength "
+                  + commitIndex2flushedDataMap.size() + " flushLength "
                   + flushPos + " numBuffers " + byteBufferList.size()
                   + " blockID " + blockID + " bufferPool size" + bufferPool
                   .getSize() + " currentBufferIndex " + bufferPool
                   .getCurrentBufferIndex());
           // for standalone protocol, logIndex will always be 0.
-          commitWatcher
-              .updateCommitInfoMap(asyncReply.getLogIndex(), byteBufferList);
+          commitIndex2flushedDataMap
+              .put(asyncReply.getLogIndex(), byteBufferList);
         }
         return e;
       }, responseExecutor).exceptionally(e -> {
@@ -426,7 +493,7 @@ public class BlockOutputStream extends OutputStream {
       throw new IOException(
           "Unexpected Storage Container Exception: " + e.toString(), e);
     }
-    commitWatcher.getFutureMap().put(flushPos, flushFuture);
+    futureMap.put(flushPos, flushFuture);
     return flushFuture;
   }
 
@@ -486,7 +553,18 @@ public class BlockOutputStream extends OutputStream {
       executePutBlock();
     }
     waitOnFlushFutures();
-    watchForCommit(false);
+    if (!commitIndex2flushedDataMap.isEmpty()) {
+      // wait for the last commit index in the commitIndex2flushedDataMap
+      // to get committed to all or majority of nodes in case timeout
+      // happens.
+      long lastIndex =
+          commitIndex2flushedDataMap.keySet().stream().mapToLong(v -> v)
+              .max().getAsLong();
+      LOG.debug(
+          "waiting for last flush Index " + lastIndex + " to catch up");
+      watchForCommit(lastIndex);
+    }
+
     // just check again if the exception is hit while waiting for the
     // futures to ensure flush has indeed succeeded
 
@@ -516,11 +594,11 @@ public class BlockOutputStream extends OutputStream {
     }
   }
 
+
   private void waitOnFlushFutures()
       throws InterruptedException, ExecutionException {
     CompletableFuture<Void> combinedFuture = CompletableFuture.allOf(
-        commitWatcher.getFutureMap().values().toArray(
-            new CompletableFuture[commitWatcher.getFutureMap().size()]));
+        futureMap.values().toArray(new CompletableFuture[futureMap.size()]));
     // wait for all the transactions to complete
     combinedFuture.get();
   }
@@ -559,11 +637,18 @@ public class BlockOutputStream extends OutputStream {
     }
     xceiverClientManager = null;
     xceiverClient = null;
-    commitWatcher.cleanup();
+    if (futureMap != null) {
+      futureMap.clear();
+    }
+    futureMap = null;
     if (bufferList !=  null) {
       bufferList.clear();
     }
     bufferList = null;
+    if (commitIndex2flushedDataMap != null) {
+      commitIndex2flushedDataMap.clear();
+    }
+    commitIndex2flushedDataMap = null;
     responseExecutor.shutdown();
   }
 

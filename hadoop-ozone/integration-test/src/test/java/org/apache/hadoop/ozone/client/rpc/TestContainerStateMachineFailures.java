@@ -43,6 +43,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.hadoop.hdds.HddsConfigKeys.
@@ -180,6 +181,7 @@ public class TestContainerStateMachineFailures {
     request.setContainerID(containerID);
     request.setCreateContainer(
         ContainerProtos.CreateContainerRequestProto.getDefaultInstance());
+    request.setTraceID(UUID.randomUUID().toString());
     request.setDatanodeUuid(
         cluster.getHddsDatanodes().get(0).getDatanodeDetails().getUuidString());
     Assert.assertEquals(ContainerProtos.Result.CONTAINER_MISSING,

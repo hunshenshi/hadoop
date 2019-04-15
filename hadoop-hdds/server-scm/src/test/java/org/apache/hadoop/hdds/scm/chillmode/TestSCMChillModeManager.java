@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.hadoop.hdds.scm.safemode;
+package org.apache.hadoop.hdds.scm.chillmode;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -52,12 +52,12 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.rules.Timeout;
 import org.mockito.Mockito;
 
-/** Test class for SCMSafeModeManager.
+/** Test class for SCMChillModeManager.
  */
-public class TestSCMSafeModeManager {
+public class TestSCMChillModeManager {
 
   private static EventQueue queue;
-  private SCMSafeModeManager scmSafeModeManager;
+  private SCMChillModeManager scmChillModeManager;
   private static Configuration config;
   private List<ContainerInfo> containers;
 
@@ -74,62 +74,62 @@ public class TestSCMSafeModeManager {
   }
 
   @Test
-  public void testSafeModeState() throws Exception {
+  public void testChillModeState() throws Exception {
     // Test 1: test for 0 containers
-    testSafeMode(0);
+    testChillMode(0);
 
     // Test 2: test for 20 containers
-    testSafeMode(20);
+    testChillMode(20);
   }
 
   @Test
-  public void testSafeModeStateWithNullContainers() {
-    new SCMSafeModeManager(config, null, null, queue);
+  public void testChillModeStateWithNullContainers() {
+    new SCMChillModeManager(config, null, null, queue);
   }
 
-  private void testSafeMode(int numContainers) throws Exception {
+  private void testChillMode(int numContainers) throws Exception {
     containers = new ArrayList<>();
     containers.addAll(HddsTestUtils.getContainerInfo(numContainers));
-    // Assign open state to containers to be included in the safe mode
+    // Assign open state to containers to be included in the chill mode
     // container list
     for (ContainerInfo container : containers) {
       container.setState(HddsProtos.LifeCycleState.OPEN);
     }
-    scmSafeModeManager = new SCMSafeModeManager(
+    scmChillModeManager = new SCMChillModeManager(
         config, containers, null, queue);
 
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
     queue.fireEvent(SCMEvents.NODE_REGISTRATION_CONT_REPORT,
         HddsTestUtils.createNodeRegistrationContainerReport(containers));
     GenericTestUtils.waitFor(() -> {
-      return !scmSafeModeManager.getInSafeMode();
+      return !scmChillModeManager.getInChillMode();
     }, 100, 1000 * 5);
   }
 
   @Test
-  public void testSafeModeExitRule() throws Exception {
+  public void testChillModeExitRule() throws Exception {
     containers = new ArrayList<>();
     containers.addAll(HddsTestUtils.getContainerInfo(25 * 4));
-    // Assign open state to containers to be included in the safe mode
+    // Assign open state to containers to be included in the chill mode
     // container list
     for (ContainerInfo container : containers) {
       container.setState(HddsProtos.LifeCycleState.CLOSED);
     }
-    scmSafeModeManager = new SCMSafeModeManager(
+    scmChillModeManager = new SCMChillModeManager(
         config, containers, null, queue);
 
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
 
     testContainerThreshold(containers.subList(0, 25), 0.25);
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
     testContainerThreshold(containers.subList(25, 50), 0.50);
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
     testContainerThreshold(containers.subList(50, 75), 0.75);
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
     testContainerThreshold(containers.subList(75, 100), 1.0);
 
     GenericTestUtils.waitFor(() -> {
-      return !scmSafeModeManager.getInSafeMode();
+      return !scmChillModeManager.getInChillMode();
     }, 100, 1000 * 5);
   }
 
@@ -140,24 +140,24 @@ public class TestSCMSafeModeManager {
     conf.set(HddsConfigKeys.OZONE_METADATA_DIRS,
         tempDir.newFolder().toString());
     conf.setBoolean(
-        HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK,
+        HddsConfigKeys.HDDS_SCM_CHILLMODE_PIPELINE_AVAILABILITY_CHECK,
         true);
     conf.setDouble(HddsConfigKeys.
-        HDDS_SCM_SAFEMODE_HEALTHY_PIPELINE_THRESHOLD_PCT, healthyPercent);
+        HDDS_SCM_CHILLMODE_HEALTHY_PIPELINE_THRESHOLD_PCT, healthyPercent);
     conf.setDouble(HddsConfigKeys.
-        HDDS_SCM_SAFEMODE_ONE_NODE_REPORTED_PIPELINE_PCT, oneReplicaPercent);
+        HDDS_SCM_CHILLMODE_ONE_NODE_REPORTED_PIPELINE_PCT, oneReplicaPercent);
 
     return conf;
   }
 
   @Test
-  public void testSafeModeExitRuleWithPipelineAvailabilityCheck()
+  public void testChillModeExitRuleWithPipelineAvailabilityCheck()
       throws Exception{
-    testSafeModeExitRuleWithPipelineAvailabilityCheck(100, 30, 8, 0.90, 1);
-    testSafeModeExitRuleWithPipelineAvailabilityCheck(100, 90, 22, 0.10, 0.9);
-    testSafeModeExitRuleWithPipelineAvailabilityCheck(100, 30, 8, 0, 0.9);
-    testSafeModeExitRuleWithPipelineAvailabilityCheck(100, 90, 22, 0, 0);
-    testSafeModeExitRuleWithPipelineAvailabilityCheck(100, 90, 22, 0, 0.5);
+    testChillModeExitRuleWithPipelineAvailabilityCheck(100, 30, 8, 0.90, 1);
+    testChillModeExitRuleWithPipelineAvailabilityCheck(100, 90, 22, 0.10, 0.9);
+    testChillModeExitRuleWithPipelineAvailabilityCheck(100, 30, 8, 0, 0.9);
+    testChillModeExitRuleWithPipelineAvailabilityCheck(100, 90, 22, 0, 0);
+    testChillModeExitRuleWithPipelineAvailabilityCheck(100, 90, 22, 0, 0.5);
   }
 
   @Test
@@ -169,7 +169,7 @@ public class TestSCMSafeModeManager {
       MockNodeManager mockNodeManager = new MockNodeManager(true, 10);
       PipelineManager pipelineManager = new SCMPipelineManager(conf,
           mockNodeManager, queue);
-      scmSafeModeManager = new SCMSafeModeManager(
+      scmChillModeManager = new SCMChillModeManager(
           conf, containers, pipelineManager, queue);
       fail("testFailWithIncorrectValueForHealthyPipelinePercent");
     } catch (IllegalArgumentException ex) {
@@ -187,7 +187,7 @@ public class TestSCMSafeModeManager {
       MockNodeManager mockNodeManager = new MockNodeManager(true, 10);
       PipelineManager pipelineManager = new SCMPipelineManager(conf,
           mockNodeManager, queue);
-      scmSafeModeManager = new SCMSafeModeManager(
+      scmChillModeManager = new SCMChillModeManager(
           conf, containers, pipelineManager, queue);
       fail("testFailWithIncorrectValueForOneReplicaPipelinePercent");
     } catch (IllegalArgumentException ex) {
@@ -197,16 +197,16 @@ public class TestSCMSafeModeManager {
   }
 
   @Test
-  public void testFailWithIncorrectValueForSafeModePercent() throws Exception {
+  public void testFailWithIncorrectValueForChillModePercent() throws Exception {
     try {
       OzoneConfiguration conf = createConf(0.9, 0.1);
-      conf.setDouble(HddsConfigKeys.HDDS_SCM_SAFEMODE_THRESHOLD_PCT, -1.0);
+      conf.setDouble(HddsConfigKeys.HDDS_SCM_CHILLMODE_THRESHOLD_PCT, -1.0);
       MockNodeManager mockNodeManager = new MockNodeManager(true, 10);
       PipelineManager pipelineManager = new SCMPipelineManager(conf,
           mockNodeManager, queue);
-      scmSafeModeManager = new SCMSafeModeManager(
+      scmChillModeManager = new SCMChillModeManager(
           conf, containers, pipelineManager, queue);
-      fail("testFailWithIncorrectValueForSafeModePercent");
+      fail("testFailWithIncorrectValueForChillModePercent");
     } catch (IllegalArgumentException ex) {
       GenericTestUtils.assertExceptionContains("value should be >= 0.0 and <=" +
           " 1.0", ex);
@@ -214,7 +214,7 @@ public class TestSCMSafeModeManager {
   }
 
 
-  public void testSafeModeExitRuleWithPipelineAvailabilityCheck(
+  public void testChillModeExitRuleWithPipelineAvailabilityCheck(
       int containerCount, int nodeCount, int pipelineCount,
       double healthyPipelinePercent, double oneReplicaPercent)
       throws Exception {
@@ -244,20 +244,20 @@ public class TestSCMSafeModeManager {
       container.setState(HddsProtos.LifeCycleState.CLOSED);
     }
 
-    scmSafeModeManager = new SCMSafeModeManager(conf, containers,
+    scmChillModeManager = new SCMChillModeManager(conf, containers,
         pipelineManager, queue);
 
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
 
     testContainerThreshold(containers, 1.0);
 
     List<Pipeline> pipelines = pipelineManager.getPipelines();
 
     int healthyPipelineThresholdCount =
-        scmSafeModeManager.getHealthyPipelineSafeModeRule()
+        scmChillModeManager.getHealthyPipelineChillModeRule()
             .getHealthyPipelineThresholdCount();
     int oneReplicaThresholdCount =
-        scmSafeModeManager.getOneReplicaPipelineSafeModeRule()
+        scmChillModeManager.getOneReplicaPipelineChillModeRule()
             .getThresholdCount();
 
     // Because even if no pipelines are there, and threshold we set to zero,
@@ -282,20 +282,20 @@ public class TestSCMSafeModeManager {
 
 
     GenericTestUtils.waitFor(() -> {
-      return !scmSafeModeManager.getInSafeMode();
+      return !scmChillModeManager.getInChillMode();
     }, 100, 1000 * 5);
   }
 
   private void checkHealthy(int expectedCount) throws Exception{
-    GenericTestUtils.waitFor(() -> scmSafeModeManager
-            .getHealthyPipelineSafeModeRule()
+    GenericTestUtils.waitFor(() -> scmChillModeManager
+            .getHealthyPipelineChillModeRule()
             .getCurrentHealthyPipelineCount() == expectedCount,
         100,  5000);
   }
 
   private void checkOpen(int expectedCount) throws Exception {
-    GenericTestUtils.waitFor(() -> scmSafeModeManager
-            .getOneReplicaPipelineSafeModeRule()
+    GenericTestUtils.waitFor(() -> scmChillModeManager
+            .getOneReplicaPipelineChillModeRule()
             .getCurrentReportedPipelineCount() == expectedCount,
         1000,  5000);
   }
@@ -313,31 +313,31 @@ public class TestSCMSafeModeManager {
 
 
   @Test
-  public void testDisableSafeMode() {
+  public void testDisableChillMode() {
     OzoneConfiguration conf = new OzoneConfiguration(config);
-    conf.setBoolean(HddsConfigKeys.HDDS_SCM_SAFEMODE_ENABLED, false);
+    conf.setBoolean(HddsConfigKeys.HDDS_SCM_CHILLMODE_ENABLED, false);
     PipelineManager pipelineManager = Mockito.mock(PipelineManager.class);
     Mockito.doNothing().when(pipelineManager).startPipelineCreator();
-    scmSafeModeManager =
-        new SCMSafeModeManager(conf, containers, pipelineManager, queue);
-    assertFalse(scmSafeModeManager.getInSafeMode());
+    scmChillModeManager =
+        new SCMChillModeManager(conf, containers, pipelineManager, queue);
+    assertFalse(scmChillModeManager.getInChillMode());
   }
 
   @Test
-  public void testSafeModeDataNodeExitRule() throws Exception {
+  public void testChillModeDataNodeExitRule() throws Exception {
     containers = new ArrayList<>();
-    testSafeModeDataNodes(0);
-    testSafeModeDataNodes(3);
-    testSafeModeDataNodes(5);
+    testChillModeDataNodes(0);
+    testChillModeDataNodes(3);
+    testChillModeDataNodes(5);
   }
 
   /**
    * Check that containers in Allocated state are not considered while
    * computing percentage of containers with at least 1 reported replica in
-   * safe mode exit rule.
+   * chill mode exit rule.
    */
   @Test
-  public void testContainerSafeModeRule() throws Exception {
+  public void testContainerChillModeRule() throws Exception {
     containers = new ArrayList<>();
     // Add 100 containers to the list of containers in SCM
     containers.addAll(HddsTestUtils.getContainerInfo(25 * 4));
@@ -350,55 +350,55 @@ public class TestSCMSafeModeManager {
       container.setState(HddsProtos.LifeCycleState.OPEN);
     }
 
-    scmSafeModeManager = new SCMSafeModeManager(
+    scmChillModeManager = new SCMChillModeManager(
         config, containers, null, queue);
 
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
 
     // When 10 CLOSED containers are reported by DNs, the computed container
     // threshold should be 10/25 as there are only 25 CLOSED containers.
     // Containers in OPEN state should not contribute towards list of
-    // containers while calculating container threshold in SCMSafeNodeManager
+    // containers while calculating container threshold in SCMChillNodeManager
     testContainerThreshold(containers.subList(0, 10), 0.4);
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    assertTrue(scmChillModeManager.getInChillMode());
 
     // When remaining 15 OPEN containers are reported by DNs, the container
     // threshold should be (10+15)/25.
     testContainerThreshold(containers.subList(10, 25), 1.0);
 
     GenericTestUtils.waitFor(() -> {
-      return !scmSafeModeManager.getInSafeMode();
+      return !scmChillModeManager.getInChillMode();
     }, 100, 1000 * 5);
   }
 
-  private void testSafeModeDataNodes(int numOfDns) throws Exception {
+  private void testChillModeDataNodes(int numOfDns) throws Exception {
     OzoneConfiguration conf = new OzoneConfiguration(config);
-    conf.setInt(HddsConfigKeys.HDDS_SCM_SAFEMODE_MIN_DATANODE, numOfDns);
-    scmSafeModeManager = new SCMSafeModeManager(
+    conf.setInt(HddsConfigKeys.HDDS_SCM_CHILLMODE_MIN_DATANODE, numOfDns);
+    scmChillModeManager = new SCMChillModeManager(
         conf, containers, null, queue);
 
-    // Assert SCM is in Safe mode.
-    assertTrue(scmSafeModeManager.getInSafeMode());
+    // Assert SCM is in Chill mode.
+    assertTrue(scmChillModeManager.getInChillMode());
 
-    // Register all DataNodes except last one and assert SCM is in safe mode.
+    // Register all DataNodes except last one and assert SCM is in chill mode.
     for (int i = 0; i < numOfDns-1; i++) {
       queue.fireEvent(SCMEvents.NODE_REGISTRATION_CONT_REPORT,
           HddsTestUtils.createNodeRegistrationContainerReport(containers));
-      assertTrue(scmSafeModeManager.getInSafeMode());
-      assertTrue(scmSafeModeManager.getCurrentContainerThreshold() == 1);
+      assertTrue(scmChillModeManager.getInChillMode());
+      assertTrue(scmChillModeManager.getCurrentContainerThreshold() == 1);
     }
 
     if(numOfDns == 0){
       GenericTestUtils.waitFor(() -> {
-        return scmSafeModeManager.getInSafeMode();
+        return scmChillModeManager.getInChillMode();
       }, 10, 1000 * 10);
       return;
     }
-    // Register last DataNode and check that SCM is out of Safe mode.
+    // Register last DataNode and check that SCM is out of Chill mode.
     queue.fireEvent(SCMEvents.NODE_REGISTRATION_CONT_REPORT,
         HddsTestUtils.createNodeRegistrationContainerReport(containers));
     GenericTestUtils.waitFor(() -> {
-      return !scmSafeModeManager.getInSafeMode();
+      return !scmChillModeManager.getInChillMode();
     }, 10, 1000 * 10);
   }
 
@@ -408,23 +408,23 @@ public class TestSCMSafeModeManager {
     queue.fireEvent(SCMEvents.NODE_REGISTRATION_CONT_REPORT,
         HddsTestUtils.createNodeRegistrationContainerReport(dnContainers));
     GenericTestUtils.waitFor(() -> {
-      double threshold = scmSafeModeManager.getCurrentContainerThreshold();
+      double threshold = scmChillModeManager.getCurrentContainerThreshold();
       return threshold == expectedThreshold;
     }, 100, 2000 * 9);
   }
 
   @Test
-  public void testSafeModePipelineExitRule() throws Exception {
+  public void testChillModePipelineExitRule() throws Exception {
     containers = new ArrayList<>();
     containers.addAll(HddsTestUtils.getContainerInfo(25 * 4));
     String storageDir = GenericTestUtils.getTempPath(
-        TestSCMSafeModeManager.class.getName() + UUID.randomUUID());
+        TestSCMChillModeManager.class.getName() + UUID.randomUUID());
     try{
       MockNodeManager nodeManager = new MockNodeManager(true, 3);
       config.set(HddsConfigKeys.OZONE_METADATA_DIRS, storageDir);
       // enable pipeline check
       config.setBoolean(
-          HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK, true);
+          HddsConfigKeys.HDDS_SCM_CHILLMODE_PIPELINE_AVAILABILITY_CHECK, true);
 
       SCMPipelineManager pipelineManager = new SCMPipelineManager(config,
           nodeManager, queue);
@@ -443,12 +443,12 @@ public class TestSCMSafeModeManager {
       reportBuilder.addPipelineReport(PipelineReport.newBuilder()
           .setPipelineID(pipeline.getId().getProtobuf()));
 
-      scmSafeModeManager = new SCMSafeModeManager(
+      scmChillModeManager = new SCMChillModeManager(
           config, containers, pipelineManager, queue);
 
       queue.fireEvent(SCMEvents.NODE_REGISTRATION_CONT_REPORT,
           HddsTestUtils.createNodeRegistrationContainerReport(containers));
-      assertTrue(scmSafeModeManager.getInSafeMode());
+      assertTrue(scmChillModeManager.getInChillMode());
 
       // Trigger the processed pipeline report event
       queue.fireEvent(SCMEvents.PROCESSED_PIPELINE_REPORT,
@@ -456,12 +456,12 @@ public class TestSCMSafeModeManager {
               reportBuilder.build()));
 
       GenericTestUtils.waitFor(() -> {
-        return !scmSafeModeManager.getInSafeMode();
+        return !scmChillModeManager.getInChillMode();
       }, 100, 1000 * 10);
       pipelineManager.close();
     } finally {
       config.setBoolean(
-          HddsConfigKeys.HDDS_SCM_SAFEMODE_PIPELINE_AVAILABILITY_CHECK,
+          HddsConfigKeys.HDDS_SCM_CHILLMODE_PIPELINE_AVAILABILITY_CHECK,
           false);
       FileUtil.fullyDelete(new File(storageDir));
     }

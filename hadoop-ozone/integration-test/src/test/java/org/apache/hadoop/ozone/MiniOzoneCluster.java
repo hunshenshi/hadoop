@@ -89,12 +89,12 @@ public interface MiniOzoneCluster {
   void setWaitForClusterToBeReadyTimeout(int timeoutInMs);
 
   /**
-   * Waits/blocks till the cluster is out of safe mode.
+   * Waits/blocks till the cluster is out of chill mode.
    *
    * @throws TimeoutException TimeoutException In case of timeout
    * @throws InterruptedException In case of interrupt while waiting
    */
-  void waitTobeOutOfSafeMode() throws TimeoutException, InterruptedException;
+  void waitTobeOutOfChillMode() throws TimeoutException, InterruptedException;
 
   /**
    * Returns {@link StorageContainerManager} associated with this
@@ -159,14 +159,12 @@ public interface MiniOzoneCluster {
   /**
    * Restarts StorageContainerManager instance.
    *
-   * @param waitForDatanode
    * @throws IOException
    * @throws TimeoutException
    * @throws InterruptedException
    */
-  void restartStorageContainerManager(boolean waitForDatanode)
-      throws InterruptedException, TimeoutException, IOException,
-      AuthenticationException;
+  void restartStorageContainerManager() throws InterruptedException,
+      TimeoutException, IOException, AuthenticationException;
 
   /**
    * Restarts OzoneManager instance.
