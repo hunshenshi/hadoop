@@ -799,6 +799,7 @@ class BPServiceActor implements Runnable {
             + e.getLocalizedMessage());
         sleepAndLogInterrupts(1000, "connecting to server");
       } catch(SocketTimeoutException e) {  // namenode is busy
+        // 是否将错误信息打印下
         LOG.info("Problem connecting to server: " + nnAddr);
         sleepAndLogInterrupts(1000, "connecting to server");
       }
